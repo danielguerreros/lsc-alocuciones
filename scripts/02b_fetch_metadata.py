@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yt_dlp
 
-SOURCES = ["presidencia", "caracol"]
+SOURCES = ["presidencia", "caracol", "rcn"]
 FIELDS = ["id", "upload_date", "duration", "title"]
 
 

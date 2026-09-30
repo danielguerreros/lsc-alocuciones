@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yt_dlp
 
-SOURCES = ["presidencia", "caracol"]
+SOURCES = ["presidencia", "caracol", "rcn"]
 
 
 def main():
