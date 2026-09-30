@@ -46,6 +46,20 @@ python scripts/03_download_subs.py --source caracol   # --cookies-from-browser c
 python scripts/parse_json3.py --source caracol
 ```
 
+## Piloto con un video y demo
+
+`scripts/piloto/` corre los pasos 4 a 7 sobre un solo video, como prueba antes de escalar:
+
+```bash
+python scripts/piloto/piloto.py LGNC7_XOC34 --region 900,280,380,320   # descarga, detección, Whisper, pose, alineación
+python scripts/piloto/demo.py LGNC7_XOC34                              # genera docs/demo/
+python -m http.server -d docs/demo                                     # abrir http://localhost:8000
+```
+
+`docs/demo/` es una página que muestra visualmente qué hace cada paso sobre la alocución del 8 de mayo de 2024. En git están la página, `datos.json` (detección, transcripción, alineación) y `pose.txt` (pose a 15 fps); el recorte del intérprete y los fotogramas se generan localmente con `demo.py`, porque la política de datos no permite versionar video ni fotogramas.
+
+Resultados del piloto (Mac M1, CPU): detección ≈4,5 min por hora de video, Whisper `large-v3-turbo` 3,5× tiempo real, pose ≈ tiempo real. Para las ≈2.400 h candidatas, el cuello de botella es el cómputo de Whisper y de la pose, no el disco.
+
 ## Política de datos
 
 - En git solo se versionan **código y manifiestos** (IDs, títulos, fechas, timestamps).

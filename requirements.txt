@@ -1,2 +1,5 @@
 yt-dlp>=2025.1.1
 pandas>=2.0
+# 0.10.21: última con mp.solutions.holistic; la 1.x exige GPU en macOS
+mediapipe==0.10.21
+faster-whisper>=1.2

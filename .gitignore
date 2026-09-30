@@ -23,3 +23,7 @@ __pycache__/
 
 # Credenciales
 cookies*.txt
+
+# Demo: el video y los fotogramas se generan con scripts/piloto/demo.py (política de datos)
+docs/demo/*.mp4
+docs/demo/*.jpg

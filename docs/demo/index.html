@@ -1,0 +1,567 @@
+<title>Demo pipeline LSC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una sola columna de lectura; cada paso es una sección con su evidencia visual, y una línea de tiempo común que las une. */
+:root {
+  --bg: #F5F6F8;
+  --surface: #FFFFFF;
+  --ink: #15202C;
+  --muted: #5A6574;
+  --line: #D8DDE4;
+  --accent: #F2B705;       /* amarillo del recuadro del intérprete */
+  --accent-ink: #7F5C00;
+  --ok: #0E8577;
+  --bad: #C2410C;
+  --absent: #AAB3BF;
+  --hand-l: #16A34A;
+  --hand-r: #B026C8;
+  --face: #3B6FB6;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 10px;
+  --stage: #0B0F14;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E141B; --surface: #151D27; --ink: #E6EBF1; --muted: #98A4B3; --line: #2A3544;
+    --accent: #F2B705; --accent-ink: #F6CB45; --ok: #2CC7B3; --bad: #FB8C4B; --absent: #4A5566;
+    --hand-l: #4ADE80; --hand-r: #E27BF5; --face: #7AA7EA; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E141B; --surface: #151D27; --ink: #E6EBF1; --muted: #98A4B3; --line: #2A3544;
+  --accent: #F2B705; --accent-ink: #F6CB45; --ok: #2CC7B3; --bad: #FB8C4B; --absent: #4A5566;
+  --hand-l: #4ADE80; --hand-r: #E27BF5; --face: #7AA7EA; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 32px 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.9rem, 4.5vw, 2.8rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.35rem, 3vw, 1.75rem); font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent-ink); }
+a:focus-visible, button:focus-visible, input:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.stack { display: grid; gap: 14px; }
+.stack-lg { display: grid; gap: 24px; }
+
+/* Cabecera */
+header { display: grid; gap: 18px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.92rem; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.flow a { text-decoration: none; color: inherit; padding: 14px 16px; border-right: 1px solid var(--line); display: grid; gap: 2px; }
+.flow a:last-child { border-right: 0; }
+.flow a:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.flow .n { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-ink); }
+.flow .t { font-family: var(--font-display); font-weight: 700; }
+.flow .v { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Línea de tiempo */
+.timeline-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 10px; }
+.tl-scroll { overflow-x: auto; }
+#timeline { display: block; width: 100%; min-width: 560px; height: auto; cursor: crosshair; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.sw.bar { border-radius: 2px; width: 16px; height: 8px; }
+
+/* Secciones de paso */
+.step { display: grid; gap: 20px; scroll-margin-top: 16px; }
+.step-head { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: baseline; }
+.step-num { font-family: var(--font-mono); font-weight: 600; font-size: 0.9rem; color: var(--accent-ink); border: 1.5px solid var(--accent); border-radius: 6px; padding: 1px 8px; }
+.step-head p { grid-column: 2; color: var(--muted); }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; background: var(--surface); }
+figcaption { font-size: 0.85rem; color: var(--muted); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.fact { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; }
+.fact .k { font-size: 0.78rem; color: var(--muted); }
+.fact .v { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fact .s { font-size: 0.8rem; color: var(--muted); }
+.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.rules li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; }
+.rules .ic { font-family: var(--font-mono); font-weight: 600; color: var(--ok); }
+.rules .ic.x { color: var(--bad); }
+.note { border-left: 3px solid var(--accent); padding: 8px 14px; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 0 8px 8px 0; font-size: 0.93rem; max-width: 80ch; }
+.bar-row { display: grid; grid-template-columns: 110px 1fr 52px; gap: 10px; align-items: center; font-size: 0.88rem; }
+.bar-track { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 5px; }
+
+/* Transcripción */
+.transcript { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 0.95rem; }
+.transcript li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; }
+.transcript .tc { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); padding-top: 2px; }
+
+/* Reproductor */
+.player { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.stage { position: relative; width: 100%; aspect-ratio: 380 / 320; border-radius: 10px; overflow: hidden; background: var(--stage); border: 1px solid var(--line); }
+.stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage video { object-fit: fill; }
+.stage-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: #E6EBF1; font-size: 0.9rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 0.88rem; }
+.btn { font: inherit; font-weight: 700; background: var(--ink); color: var(--bg); border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 400; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.clock { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lanes { display: grid; gap: 12px; min-width: 0; }
+.lane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.lane .lbl { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.lane .txt { font-size: 1.02rem; min-height: 3.1em; }
+.lane .txt .w { color: var(--muted); }
+.lane .txt .w.on { color: var(--ink); }
+.lane .txt .w.now { background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 3px; color: var(--ink); }
+.lane.sign { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.win { position: relative; height: 34px; }
+.win .r { position: absolute; height: 12px; border-radius: 3px; }
+.win .r.a { top: 2px; background: var(--face); opacity: 0.75; }
+.win .r.p { top: 18px; background: var(--accent); }
+.win .cur { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+.sent-list { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.sent-list li { display: grid; grid-template-columns: 58px 1fr 48px; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 0.9rem; align-items: baseline; }
+.sent-list li:last-child { border-bottom: 0; }
+.sent-list li:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.sent-list li.active { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.sent-list li.off { opacity: 0.5; cursor: default; }
+.sent-list .tc { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.sent-list .hc { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); text-align: right; }
+
+/* Tabla */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.92rem; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.78rem; color: var(--muted); font-weight: 700; letter-spacing: 0.03em; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; }
+.pill.hi { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.pill.lo { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+footer { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 760px) {
+  .player { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .flow a { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">LSC-Alocuciones · prueba del pipeline con un video</div>
+  <h1>De una alocución en YouTube a pares oración ↔ señas</h1>
+  <p>Esta página muestra qué hace cada paso del pipeline sobre un video real, la alocución de Gustavo Petro del 8 de mayo de 2024, que tiene intérprete de Lengua de Señas Colombiana abajo a la derecha. Todo lo que aparece aquí salió de correr el pipeline sobre ese video.</p>
+  <div class="meta">
+    <span>Video <b class="mono">LGNC7_XOC34</b> · <a href="https://www.youtube.com/watch?v=LGNC7_XOC34" target="_blank" rel="noopener">abrir en YouTube</a></span>
+    <span>Duración <b class="mono">10:19</b></span>
+    <span>Descarga <b>1280×720, 29,97 fps</b></span>
+    <span>Procesado en un <b>Mac M1, CPU</b></span>
+  </div>
+  <nav class="flow" aria-label="Pasos">
+    <a href="#descarga"><span class="n">1–3</span><span class="t">Descarga</span><span class="v">170 MB video · 9 MB audio</span></a>
+    <a href="#deteccion"><span class="n">Paso 4</span><span class="t">Detección</span><span class="v">7:36 con intérprete</span></a>
+    <a href="#transcripcion"><span class="n">Paso 5</span><span class="t">Transcripción</span><span class="v">1.081 palabras</span></a>
+    <a href="#pose"><span class="n">Paso 6</span><span class="t">Pose</span><span class="v">13.667 fotogramas</span></a>
+    <a href="#alineacion"><span class="n">Paso 7</span><span class="t">Alineación</span><span class="v">47 oraciones</span></a>
+  </nav>
+</header>
+
+<section class="timeline-card" aria-labelledby="tl-title">
+  <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">
+    <h3 id="tl-title">El video completo, capa por capa</h3>
+    <span class="clock" id="tl-hover">Pasa el cursor por la línea de tiempo</span>
+  </div>
+  <div class="tl-scroll"><svg id="timeline" role="img" aria-label="Línea de tiempo del video con la detección del intérprete, el audio, la voz transcrita y las oraciones alineadas"></svg></div>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--ok)"></i>intérprete detectado</span>
+    <span><i class="sw" style="background:var(--bad)"></i>persona descartada por tamaño o posición</span>
+    <span><i class="sw" style="background:var(--absent)"></i>sin persona</span>
+    <span><i class="sw bar" style="background:var(--accent)"></i>tramo con intérprete</span>
+    <span><i class="sw bar" style="background:var(--face)"></i>voz transcrita</span>
+  </div>
+  <p class="muted" style="font-size:0.85rem">Haz clic dentro del tramo amarillo para saltar a ese momento en el reproductor del paso 7.</p>
+</section>
+
+<section class="step" id="descarga">
+  <div class="step-head"><span class="step-num">1–3</span><h2>Inventario, selección y descarga</h2>
+    <p>Los pasos 1 y 2 ya listaron el canal de Presidencia y eligieron este video como candidato por su título ("Alocución…") y su fecha. Aquí se descargan el video y el audio por separado, porque YouTube los entrega como flujos distintos.</p></div>
+  <div class="facts">
+    <div class="fact"><span class="k">Video 720p</span><span class="v">170 MB</span><span class="s">descarga en 24 s · ≈1 GB por hora</span></div>
+    <div class="fact"><span class="k">Audio (Opus)</span><span class="v">9 MB</span><span class="s">descarga en 3 s · ≈53 MB por hora</span></div>
+    <div class="fact"><span class="k">Bloqueos de YouTube</span><span class="v">0</span><span class="s">descargas en serie, una a la vez</span></div>
+  </div>
+  <p class="note">Si YouTube lo permite, no hace falta bajar el video entero: con <span class="mono">--download-sections</span> se piden solo los segundos que interesan. En la prueba bajamos 30 s de una emisión de Caracol y pesaron 5,3 MB.</p>
+</section>
+
+<section class="step" id="deteccion">
+  <div class="step-head"><span class="step-num">Paso 4</span><h2>¿Dónde y cuándo está el intérprete?</h2>
+    <p>En cada fuente el intérprete aparece casi siempre en el mismo sitio. El pipeline no busca en toda la imagen: mira solo una región fija y pregunta si ahí hay alguien señando, un fotograma cada 2 segundos.</p></div>
+  <div class="grid-2">
+    <figure><img src="fotograma_region.jpg" alt="Fotograma de la alocución con el presidente en el atril y el intérprete en un recuadro abajo a la derecha, marcado con un rectángulo amarillo" loading="lazy" width="960" height="540">
+      <figcaption><span class="mono">5:00</span> · La región analizada (rectángulo amarillo): 380×320 píxeles, abajo a la derecha. El intérprete ocupa unos 250 píxeles de alto.</figcaption></figure>
+    <figure><img src="fotograma_intro.jpg" alt="Fotograma de la introducción del video, con imágenes de apoyo y sin intérprete en la región marcada" loading="lazy" width="960" height="540">
+      <figcaption><span class="mono">0:30</span> · En la introducción hay imágenes de apoyo y música, sin intérprete. Esos segundos no deben entrar al dataset.</figcaption></figure>
+  </div>
+
+  <div class="stack">
+    <h3>Qué ve el modelo en la región</h3>
+    <figure><img src="recortes.jpg" alt="Hoja de recortes de la región cada 20 segundos: los primeros ocho son imágenes de apoyo sin persona, del 160 en adelante aparece el intérprete" loading="lazy" width="1432" height="704">
+      <figcaption>Un recorte cada 20 s. Etiquetas: <span class="mono">P</span> persona detectada, <span class="mono">M</span> manos (0–2), <span class="mono">C</span> cara, <span class="mono">sw</span> ancho de hombros como fracción del recorte. Hasta los 140 s no hay intérprete; desde los 160 s está siempre.</figcaption></figure>
+  </div>
+
+  <div class="grid-2">
+    <div class="stack">
+      <h3>La regla</h3>
+      <p>MediaPipe Holistic busca un cuerpo, manos y cara en el recorte. Un fotograma cuenta como "intérprete" solo si el cuerpo tiene el tamaño y la posición de un intérprete en su recuadro:</p>
+      <ul class="rules">
+        <li><span class="ic">✓</span><span>Hombros entre el 20% y el 40% del ancho de la región.</span></li>
+        <li><span class="ic">✓</span><span>Nariz cerca del centro horizontal (25–65%) y en el tercio superior (15–45%).</span></li>
+        <li><span class="ic">✓</span><span>Huecos de hasta 6 s se rellenan: un fallo aislado no corta el tramo.</span></li>
+        <li><span class="ic x">✗</span><span>Tramos de menos de 10 s se descartan.</span></li>
+      </ul>
+    </div>
+    <div class="stack">
+      <h3>Lo que la regla descarta</h3>
+      <div class="grid-3">
+        <figure><img src="falso_28.jpg" alt="Recorte con una mano en primer plano en la que el modelo dibujó un esqueleto" loading="lazy" width="350" height="320"><figcaption class="mono">0:28 · una mano</figcaption></figure>
+        <figure><img src="falso_96.jpg" alt="Recorte con una persona en primer plano, hombros demasiado anchos" loading="lazy" width="350" height="320"><figcaption class="mono">1:36 · hombros 53%</figcaption></figure>
+        <figure><img src="falso_114.jpg" alt="Recorte con una mujer con sombrero en una toma de apoyo" loading="lazy" width="350" height="320"><figcaption class="mono">1:54 · hombros 45%</figcaption></figure>
+      </div>
+      <p class="muted" style="font-size:0.9rem">El modelo encontró "personas" en 10 fotogramas de la introducción. Todas eran tomas de apoyo, y la regla de tamaño y posición las eliminó.</p>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div class="fact"><span class="k">Fotogramas analizados</span><span class="v">310</span><span class="s">uno cada 2 s · 45 s de proceso</span></div>
+    <div class="fact"><span class="k">Con intérprete</span><span class="v">227</span><span class="s">10 descartados por la regla</span></div>
+    <div class="fact"><span class="k">Tramo resultante</span><span class="v mono">2:31–10:07</span><span class="s">456 s</span></div>
+    <div class="fact"><span class="k">Del video total</span><span class="v">74%</span><span class="s">el resto es introducción y cierre</span></div>
+  </div>
+</section>
+
+<section class="step" id="transcripcion">
+  <div class="step-head"><span class="step-num">Paso 5</span><h2>Qué se dice y cuándo</h2>
+    <p>Whisper (<span class="mono">large-v3-turbo</span>) transcribe el audio completo y da una marca de tiempo para cada palabra. Se transcribe todo, no solo el tramo con intérprete, porque el intérprete va unos segundos atrás de la voz.</p></div>
+  <div class="facts">
+    <div class="fact"><span class="k">Audio</span><span class="v mono">10:19</span><span class="s">transcrito en 2:55</span></div>
+    <div class="fact"><span class="k">Velocidad</span><span class="v">3,5×</span><span class="s">más rápido que el tiempo real, en CPU</span></div>
+    <div class="fact"><span class="k">Resultado</span><span class="v">1.081</span><span class="s">palabras en 185 segmentos</span></div>
+    <div class="fact"><span class="k">Primera voz</span><span class="v mono">2:22</span><span class="s">el locutor; el presidente desde 2:31</span></div>
+  </div>
+  <div class="stack">
+    <h3>Primeras frases</h3>
+    <ol class="transcript" id="transcript-sample"></ol>
+    <p class="muted" style="font-size:0.9rem">Antes de 2:22 solo hay música, y Whisper no transcribe nada gracias a su detector de voz. El presidente empieza a hablar a los 151,4 s y el intérprete aparece a los 151 s: la detección del paso 4 y el audio cuadran.</p>
+  </div>
+</section>
+
+<section class="step" id="pose">
+  <div class="step-head"><span class="step-num">Paso 6</span><h2>Del recuadro a puntos del cuerpo</h2>
+    <p>Dentro del tramo con intérprete, el pipeline recorta la región (30 MB por 7,6 min, contra 170 MB del video completo) y MediaPipe Holistic extrae en cada fotograma la posición de 33 puntos del cuerpo, 21 de cada mano y 468 de la cara.</p></div>
+  <figure><img src="pose_hoja.jpg" alt="Ocho fotogramas del intérprete con el esqueleto del cuerpo en amarillo, la mano izquierda en verde, la mano derecha en magenta y puntos blancos en la cara" loading="lazy" width="1520" height="720">
+    <figcaption>Una oración, cada 25 fotogramas (≈0,8 s): cuerpo en amarillo, mano izquierda en verde, mano derecha en magenta, cara en blanco. En <span class="mono">t=165,5 s</span> las dos manos se mueven rápido y el modelo no las encuentra.</figcaption></figure>
+  <div class="grid-2">
+    <div class="stack">
+      <h3>Qué tan seguido encuentra cada parte</h3>
+      <div class="stack" id="coverage"></div>
+      <p class="muted" style="font-size:0.9rem">Sobre los 13.667 fotogramas del tramo. Las manos fallan sobre todo con movimiento rápido (borrosas) o cuando se cruzan.</p>
+    </div>
+    <div class="facts" style="align-self:start">
+      <div class="fact"><span class="k">Velocidad</span><span class="v">32 fps</span><span class="s">≈ tiempo real en CPU</span></div>
+      <div class="fact"><span class="k">Recorte</span><span class="v">236 MB/h</span><span class="s">vs ≈1 GB/h del video</span></div>
+      <div class="fact"><span class="k">Pose guardada</span><span class="v">640 MB/h</span><span class="s">casi todo es la malla de la cara</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="step" id="alineacion">
+  <div class="step-head"><span class="step-num">Paso 7</span><h2>Cada oración con sus señas</h2>
+    <p>Las palabras de Whisper se agrupan en oraciones. Para cada una se toma la pose desde 1 s después de que empieza a oírse hasta 3 s después de que termina, porque el intérprete va detrás de la voz. Ese desfase es una suposición: con esta alocución no se pudo medir.</p></div>
+
+  <div class="player">
+    <div class="stack">
+      <div class="stage">
+        <video id="vid" src="interprete.mp4" preload="metadata" playsinline></video>
+        <canvas id="overlay" width="760" height="640" aria-label="Esqueleto detectado sobre el intérprete"></canvas>
+        <p class="stage-msg" id="stage-msg" hidden>Falta el video del intérprete. Genéralo con <span class="mono">python scripts/piloto/demo.py LGNC7_XOC34</span> (ver README).</p>
+      </div>
+      <div class="controls">
+        <button class="btn" id="play" type="button">Reproducir</button>
+        <label class="toggle"><input type="checkbox" id="show-video" checked> video</label>
+        <label class="toggle"><input type="checkbox" id="show-skel" checked> esqueleto</label>
+        <span class="clock" id="clock">2:31,0</span>
+      </div>
+    </div>
+    <div class="lanes">
+      <div class="lane">
+        <div class="lbl"><span>Se oye ahora</span><span class="mono" id="audio-id"></span></div>
+        <div class="txt" id="audio-txt"><span class="muted">Reproduce el video o elige una oración de la lista.</span></div>
+      </div>
+      <div class="lane sign">
+        <div class="lbl"><span>Se está señando (ventana estimada)</span><span class="mono" id="sign-id"></span></div>
+        <div class="txt" id="sign-txt"><span class="muted">—</span></div>
+        <div class="win" id="win" aria-hidden="true"></div>
+        <div class="legend"><span><i class="sw bar" style="background:var(--face)"></i>audio de la oración</span><span><i class="sw bar" style="background:var(--accent)"></i>ventana de pose (+1 s, +3 s)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h3>Las 50 oraciones</h3><span class="muted" style="font-size:0.85rem">Haz clic en una para escucharla y ver sus señas · la columna derecha es el % de fotogramas con alguna mano</span>
+    </div>
+    <ol class="sent-list" id="sentences"></ol>
+  </div>
+</section>
+
+<section class="step" id="proyeccion">
+  <div class="step-head"><span class="step-num">Escala</span><h2>Qué implicaría hacer esto con las 2.400 horas</h2>
+    <p>Proyección con los tiempos medidos en esta prueba, en un solo proceso en el M1 y sin GPU. El cuello de botella no es el disco ni YouTube, es el cómputo de Whisper y de la pose.</p></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Paso</th><th>Medido aquí</th><th>Por hora de video</th><th>Total ≈2.400 h</th></tr></thead>
+      <tbody>
+        <tr><td>Descarga del video</td><td class="num">24 s / 10 min</td><td class="num">≈2,5 min</td><td class="num">≈95 h <span class="pill lo">bajo</span></td></tr>
+        <tr><td>Detección (paso 4)</td><td class="num">45 s / 10 min</td><td class="num">≈4,5 min</td><td class="num">≈175 h</td></tr>
+        <tr><td>Whisper (paso 5)</td><td class="num">175 s / 10 min</td><td class="num">≈17 min</td><td class="num">≈680 h <span class="pill hi">alto</span></td></tr>
+        <tr><td>Pose (paso 6)</td><td class="num">423 s / 7,6 min</td><td class="num">≈56 min con intérprete</td><td class="num">≈1.700 h <span class="pill hi">alto</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">Formas de bajarlo: pose a 15 fps en vez de 30 (la mitad), usar la GPU del M1 (en esta sesión no estaba disponible), varios procesos en paralelo, o GPU en la nube. También se puede empezar por Presidencia y Caracol (≈900 h), donde el intérprete está casi siempre.</div>
+</section>
+
+<footer>Generado con <span class="mono">scripts/piloto/demo.py</span> a partir de <span class="mono">data/piloto/LGNC7_XOC34/</span>. El video y las imágenes no se versionan (política de datos del README): hay que generarlos localmente. El video del paso 7 es el recorte del intérprete a 15 fps con el audio original; el esqueleto se dibuja desde los puntos extraídos (15 fps, cara reducida a labios, ojos y cejas).</footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmt = (s, dec = 0) => {
+    const m = Math.floor(s / 60), r = s - m * 60;
+    return `${m}:${(dec ? r.toFixed(dec) : Math.floor(r).toString()).padStart(dec ? 3 + dec : 2, "0").replace(".", ",")}`;
+  };
+  const T0 = 151.0; // segundo del video original donde empieza el recorte
+
+  let D = null, P = null;
+  const vid = $("#vid"), cv = $("#overlay"), ctx = cv.getContext("2d");
+
+  Promise.all([
+    fetch("datos.json").then((r) => r.json()),
+    fetch("pose.txt").then((r) => r.text()).then((b64) => Uint8Array.from(atob(b64.trim()), (c) => c.charCodeAt(0))).catch(() => null),
+  ]).then(([d, p]) => { D = d; P = p; init(); }).catch(() => {
+    $("#tl-hover").textContent = "No se pudieron cargar los datos de la prueba.";
+  });
+
+  function init() {
+    D.sentWords = D.oraciones.map((s) => D.whisper.palabras.filter((w) => w.a >= s.audio_ini - 0.01 && w.b <= s.audio_fin + 0.01));
+    drawTimeline();
+    new ResizeObserver(drawTimeline).observe($(".tl-scroll"));
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawTimeline);
+    new MutationObserver(drawTimeline).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    fillTranscript();
+    fillCoverage();
+    fillSentences();
+    update();
+  }
+
+  // ---------- Línea de tiempo ----------
+  function drawTimeline() {
+    const svg = $("#timeline");
+    const W = Math.max(560, $(".tl-scroll").clientWidth), L = 92, R = 12;
+    const dur = D.video.duracion, x = (t) => L + (t / dur) * (W - L - R);
+    const rows = [
+      ["Detección", 26], ["Tramo", 52], ["Audio", 74], ["Voz", 116], ["Oraciones", 138],
+    ];
+    const H = 176;
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    let s = "";
+    const C = Object.fromEntries(["ink","muted","line","ok","bad","absent","accent","accent-ink","face"].map((k) => [k, css("--" + k)]));
+    const ink = C.ink, muted = C.muted, line = C.line, mono = 'style="font-family:var(--font-mono)"';
+    rows.forEach(([name, y]) => { s += `<text x="0" y="${y + 4}" fill="${muted}" font-size="11" ${mono}>${name}</text>`; });
+    // eje
+    for (let t = 0; t <= dur; t += 60) {
+      s += `<line x1="${x(t)}" x2="${x(t)}" y1="12" y2="${H - 18}" stroke="${line}" stroke-width="1"/>`;
+      s += `<text x="${x(t)}" y="${H - 4}" fill="${muted}" font-size="10.5" text-anchor="middle" ${mono}>${fmt(t)}</text>`;
+    }
+    // detección
+    D.deteccion.forEach((d) => {
+      const c = d.ok ? C.ok : d.pose ? C.bad : C.absent;
+      s += `<circle cx="${x(d.t)}" cy="26" r="${d.ok ? 2.6 : 3}" fill="${c}"/>`;
+    });
+    // tramo
+    D.tramos.forEach(([a, b]) => { s += `<rect x="${x(a)}" y="46" width="${x(b) - x(a)}" height="12" rx="3" fill="${C.accent}"/>`; });
+    // envolvente del audio
+    const env = D.envolvente, step = D.env_paso;
+    let path = `M ${x(0)} 92`;
+    env.forEach((v, i) => { path += ` L ${x(i * step).toFixed(1)} ${(92 - v * 24).toFixed(1)}`; });
+    for (let i = env.length - 1; i >= 0; i--) path += ` L ${x(i * step).toFixed(1)} ${(92 + env[i] * 6).toFixed(1)}`;
+    s += `<path d="${path} Z" fill="${muted}" opacity="0.55"/>`;
+    // voz
+    D.whisper.segmentos.forEach((g) => { s += `<rect x="${x(g.a)}" y="111" width="${Math.max(1, x(g.b) - x(g.a))}" height="10" fill="${C.face}" opacity="0.8"/>`; });
+    // oraciones (alternando tono)
+    D.oraciones.forEach((o, i) => {
+      const c = o.en_tramo ? (i % 2 ? C.accent : C["accent-ink"]) : C.absent;
+      s += `<rect x="${x(o.pose_ini)}" y="${i % 2 ? 139 : 133}" width="${Math.max(1, x(o.pose_fin) - x(o.pose_ini))}" height="6" rx="2" fill="${c}" opacity="0.9"/>`;
+    });
+    s += `<line id="tl-cur" x1="0" x2="0" y1="12" y2="${H - 18}" stroke="${ink}" stroke-width="1.5" visibility="hidden"/>`;
+    svg.innerHTML = s;
+    svg.onmousemove = (e) => {
+      const r = svg.getBoundingClientRect(), t = ((e.clientX - r.left) / r.width * W - L) / (W - L - R) * dur;
+      if (t < 0 || t > dur) return;
+      const d = D.deteccion.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a));
+      const w = D.whisper.palabras.find((p) => p.a <= t && t <= p.b + 0.3);
+      $("#tl-hover").textContent = `${fmt(t, 1)} · ${d.ok ? "intérprete" : d.pose ? "persona descartada" : "sin persona"}${w ? " · «" + w.w + "»" : ""}`;
+    };
+    svg.onclick = (e) => {
+      const r = svg.getBoundingClientRect(), t = ((e.clientX - r.left) / r.width * W - L) / (W - L - R) * dur;
+      const [a, b] = D.tramos[0];
+      if (t >= a && t <= b) { seek(t); $("#alineacion").scrollIntoView({ behavior: "smooth" }); }
+    };
+    D._tl = { x, W };
+    updateCursor();
+  }
+  function updateCursor() {
+    const c = document.getElementById("tl-cur");
+    if (!c || !D._tl) return;
+    const t = T0 + (vid.currentTime || 0);
+    c.setAttribute("x1", D._tl.x(t)); c.setAttribute("x2", D._tl.x(t));
+    c.setAttribute("visibility", vid.currentTime > 0 ? "visible" : "hidden");
+  }
+
+  // ---------- Transcripción ----------
+  function fillTranscript() {
+    const ol = $("#transcript-sample");
+    D.oraciones.slice(0, 5).forEach((o) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="tc">${fmt(o.audio_ini, 1)}</span><span></span>`;
+      li.lastChild.textContent = o.texto;
+      ol.appendChild(li);
+    });
+  }
+
+  // ---------- Cobertura de pose ----------
+  function fillCoverage() {
+    const c = D.pose.cobertura, box = $("#coverage");
+    [["Cuerpo", c.cuerpo, "var(--accent)"], ["Mano izquierda", c.mano_izq, "var(--hand-l)"], ["Mano derecha", c.mano_der, "var(--hand-r)"]].forEach(([n, v, col]) => {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML = `<span>${n}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:${(v * 100).toFixed(1)}%;background:${col}"></span></span><span class="mono">${(v * 100).toFixed(1).replace(".", ",")}%</span>`;
+      box.appendChild(row);
+    });
+  }
+
+  // ---------- Lista de oraciones ----------
+  function fillSentences() {
+    const ol = $("#sentences");
+    D.oraciones.forEach((o, i) => {
+      const li = document.createElement("li");
+      li.dataset.i = i;
+      li.tabIndex = o.en_tramo ? 0 : -1;
+      if (!o.en_tramo) li.classList.add("off");
+      li.innerHTML = `<span class="tc">${fmt(o.audio_ini, 1)}</span><span></span><span class="hc">${o.en_tramo ? Math.round(o.cobertura_manos * 100) + "%" : "fuera"}</span>`;
+      li.children[1].textContent = o.texto;
+      const go = () => { if (o.en_tramo) { seek(Math.max(T0, o.audio_ini - 0.3)); vid.play(); } };
+      li.onclick = go;
+      li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+      ol.appendChild(li);
+    });
+  }
+
+  // ---------- Reproductor ----------
+  function seek(t) { vid.currentTime = Math.max(0, t - T0); update(); }
+  $("#play").onclick = () => (vid.paused ? vid.play() : vid.pause());
+  vid.addEventListener("play", () => { $("#play").textContent = "Pausa"; loop(); });
+  vid.addEventListener("pause", () => { $("#play").textContent = "Reproducir"; });
+  vid.addEventListener("seeked", update);
+  vid.addEventListener("loadeddata", update);
+  vid.addEventListener("error", () => { $("#stage-msg").hidden = false; });
+  $("#show-video").onchange = (e) => { vid.style.visibility = e.target.checked ? "visible" : "hidden"; };
+  $("#show-skel").onchange = update;
+
+  function loop() { update(); if (!vid.paused && !vid.ended) requestAnimationFrame(loop); }
+
+  let lastA = -1, lastS = -1;
+  function update() {
+    if (!D) return;
+    const t = T0 + (vid.currentTime || 0);
+    $("#clock").textContent = fmt(t, 1);
+    updateCursor();
+    drawSkeleton(t);
+    // oración que se oye
+    const ia = D.oraciones.findIndex((o) => t >= o.audio_ini && t <= o.audio_fin + 0.4);
+    renderLane("#audio-txt", "#audio-id", ia, t, true);
+    // oración que se estima que se está señando (la que empezó más tarde de las que contienen t)
+    let is = -1;
+    D.oraciones.forEach((o, i) => { if (o.en_tramo && t >= o.pose_ini && t <= o.pose_fin) is = i; });
+    renderLane("#sign-txt", "#sign-id", is, t, false);
+    renderWindow(is, t);
+    if (is !== lastS) {
+      document.querySelectorAll("#sentences li.active").forEach((n) => n.classList.remove("active"));
+      if (is >= 0) {
+        const li = document.querySelector(`#sentences li[data-i="${is}"]`);
+        li.classList.add("active");
+        const list = $("#sentences");
+        if (li.offsetTop < list.scrollTop || li.offsetTop > list.scrollTop + list.clientHeight - 40) list.scrollTop = li.offsetTop - 60;
+      }
+      lastS = is;
+    }
+  }
+  function renderLane(txtSel, idSel, i, t, isAudio) {
+    const el = $(txtSel);
+    $(idSel).textContent = i >= 0 ? `oración ${i}` : "";
+    if (i < 0) { el.innerHTML = `<span class="muted">${isAudio ? "Silencio o fuera del recorte." : "—"}</span>`; return; }
+    const ws = D.sentWords[i];
+    el.innerHTML = "";
+    ws.forEach((w) => {
+      const sp = document.createElement("span");
+      sp.className = "w" + (isAudio ? (t >= w.b ? " on" : t >= w.a ? " now" : "") : " on");
+      sp.textContent = w.w + " ";
+      el.appendChild(sp);
+    });
+  }
+  function renderWindow(i, t) {
+    const box = $("#win");
+    if (i < 0) { box.innerHTML = ""; return; }
+    const o = D.oraciones[i], a = o.audio_ini - 1, b = o.pose_fin + 1, span = b - a;
+    const pct = (v) => ((v - a) / span * 100).toFixed(2) + "%";
+    box.innerHTML =
+      `<span class="r a" style="left:${pct(o.audio_ini)};width:calc(${pct(o.audio_fin)} - ${pct(o.audio_ini)})"></span>` +
+      `<span class="r p" style="left:${pct(o.pose_ini)};width:calc(${pct(o.pose_fin)} - ${pct(o.pose_ini)})"></span>` +
+      `<span class="cur" style="left:${pct(Math.min(Math.max(t, a), b))}"></span>`;
+  }
+
+  function drawSkeleton(t) {
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    if (!P || !$("#show-skel").checked) return;
+    const M = D.pose, k = Math.round((t - M.t0) * M.fps);
+    if (k < 0 || k >= M.frames) return;
+    const base = k * M.pts * 2;
+    const pt = (i) => { const u = P[base + i * 2], v = P[base + i * 2 + 1]; return u === 255 || v === 255 ? null : [u / 254 * W, v / 254 * H]; };
+    const group = (off, edges, color, width, r) => {
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width; ctx.lineCap = "round";
+      edges.forEach(([a, b]) => { const p = pt(off + a), q = pt(off + b); if (p && q) { ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); } });
+      if (r) { const n = Math.max(...edges.flat()) + 1; for (let i = 0; i < n; i++) { const p = pt(off + i); if (p) { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill(); } } }
+    };
+    const O = M.offsets, E = M.edges;
+    // el cuerpo sin la cadera ni las piernas (fuera del recuadro)
+    const body = E.cuerpo.filter(([a, b]) => a <= 22 && b <= 22);
+    group(O.cuerpo, body, css("--accent"), 5, 3.5);
+    group(O.cara, E.cara, "rgba(255,255,255,0.85)", 1.6, 0);
+    group(O.mano_izq, E.mano, css("--hand-l"), 3, 3);
+    group(O.mano_der, E.mano, css("--hand-r"), 3, 3);
+  }
+})();
+</script>
