@@ -2,7 +2,9 @@
 data/*
 !data/manifests/
 data/manifests/*
-!data/manifests/*.tsv
+!data/manifests/*/
+data/manifests/*/*
+!data/manifests/*/*.tsv
 !data/manifests/.gitkeep
 
 *.mp4

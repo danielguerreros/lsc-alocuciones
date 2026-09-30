@@ -1,9 +1,9 @@
 """Paso 3b: convierte json3 de YouTube en una tabla de palabras con tiempo de inicio (s)."""
+import argparse
 import json
 from pathlib import Path
 
-SUBS = Path("data/subs")
-OUT = Path("data/words")
+SOURCES = ["presidencia", "caracol"]
 
 
 def parse(path: Path) -> list[tuple[float, str]]:
@@ -19,6 +19,11 @@ def parse(path: Path) -> list[tuple[float, str]]:
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source", choices=SOURCES, default="presidencia")
+    args = ap.parse_args()
+    SUBS = Path("data/subs") / args.source
+    OUT = Path("data/words") / args.source
     OUT.mkdir(parents=True, exist_ok=True)
     for p in sorted(SUBS.glob("*.json3")):
         vid = p.name.split(".")[0]

@@ -6,12 +6,16 @@ from pathlib import Path
 import yt_dlp
 
 CHANNEL = "https://www.youtube.com/@infopresidencia"
-OUT = Path("data/manifests")
+OUT = Path("data/manifests/presidencia")
 FIELDS = ["id", "title", "upload_date", "duration", "live_status", "tab", "url"]
 
 
 def list_tab(tab: str) -> list[dict]:
-    opts = {"extract_flat": "in_playlist", "quiet": True, "skip_download": True}
+    # Sin lang=es YouTube devuelve títulos auto-traducidos según la región del cliente.
+    opts = {
+        "extract_flat": "in_playlist", "quiet": True, "skip_download": True,
+        "extractor_args": {"youtube": {"lang": ["es"]}},
+    }
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(f"{CHANNEL}/{tab}", download=False)
     rows = []
