@@ -1,0 +1,21 @@
+# Datos pesados o con derechos: no se versionan
+data/*
+!data/manifests/
+data/manifests/*
+!data/manifests/*.tsv
+!data/manifests/.gitkeep
+
+*.mp4
+*.webm
+*.mkv
+*.wav
+*.m4a
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# Credenciales
+cookies*.txt
