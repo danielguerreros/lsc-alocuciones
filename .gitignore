@@ -5,6 +5,8 @@ data/manifests/*
 !data/manifests/*/
 data/manifests/*/*
 !data/manifests/*/*.tsv
+# Inventarios completos de los noticieros (>20 MB, se regeneran con 01_list_noticieros.py)
+data/manifests/*/channel_emisiones.tsv
 !data/manifests/.gitkeep
 
 *.mp4

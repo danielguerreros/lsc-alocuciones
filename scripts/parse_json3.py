@@ -3,7 +3,7 @@ import argparse
 import json
 from pathlib import Path
 
-SOURCES = ["presidencia", "caracol", "rcn"]
+SOURCES = ["presidencia", "caracol", "rcn", "canal1"]
 
 
 def parse(path: Path) -> list[tuple[float, str]]:

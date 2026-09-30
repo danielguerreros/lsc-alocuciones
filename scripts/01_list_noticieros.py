@@ -1,11 +1,16 @@
-"""Pasos 1+2 para noticieros: emisiones del mediodía, las únicas con intérprete de LSC.
+"""Pasos 1+2 para noticieros: las emisiones con intérprete de LSC (en general, la del mediodía).
 
-Las emisiones completas están en listas de reproducción ("Emisiones Noticias <canal> AAAA");
-los canales suben además decenas de clips diarios, así que no se listan enteros.
+Las emisiones completas están sobre todo en listas de reproducción ("Emisiones Noticias <canal> AAAA"),
+que traen muchas más que las pestañas del canal (en RCN, 1.316 contra 445). Aun así, algunas
+emisiones solo están en las pestañas de videos y directos, así que se recorren también (tarda varios
+minutos: los canales suben decenas de clips diarios).
 En la revisión manual, las emisiones de la mañana y de la noche no tienen intérprete.
 - Caracol: intérprete integrado en el set, presente en todos los fotogramas revisados.
 - RCN: recuadro sobre el logo, intermitente (falta en aperturas y algunas pantallas divididas),
   y no se vio en muestras de 2022-2023. El paso 4 debe decidir qué tramos sirven.
+- Canal 1: solo "Televista" (antes "Noticentro 1 Televista") tiene intérprete, en recuadro grande
+  abajo a la derecha; la primera emisión, la central y la última no. No hay lista de emisiones:
+  se toman de la pestaña de directos.
 """
 import argparse
 import csv
@@ -18,21 +23,29 @@ import yt_dlp
 
 SOURCES = {
     "caracol": {
-        "pattern": r"mediodia",
+        "pattern": r"(emision|edicion).{0,20}mediodia",  # excluye notas ("el mediodía sin sombra") y bloques de ~2009
         "playlists": {
             "2025": "PLazv5nJTMUQayFG8AtdHljhWlAyiprHKN",  # empieza el 15 de septiembre de 2025
             "2026": "PLazv5nJTMUQYd6ANhFDqid0t8z58mOPX2",
+            "canal_videos": "https://www.youtube.com/@NoticiasCaracol/videos",
+            "canal_directos": "https://www.youtube.com/@NoticiasCaracol/streams",
         },
     },
     "rcn": {
-        "pattern": r"12[:.]30|mediodia",
+        "pattern": r"12[:.]30|(noticias|notcias|emision).{0,25}mediodia",
         "playlists": {
             "general": "PLmVsDcVor9k2cadqllEJCj_bsP_Vw7fN8",  # 2022-2023, algunos títulos sin año
             "2023": "PLmVsDcVor9k0NpMc52jOBtQy-lbk7tDU4",
             "2024": "PLmVsDcVor9k1J79uRV2IQFH5iGVNLerbH",
             "2025": "PLmVsDcVor9k1vicMF5OoVCEU9TvDx3cRv",
             "2026": "PLmVsDcVor9k0y7alXsX_W7k1ZlUQUHZVq",
+            "canal_videos": "https://www.youtube.com/@NoticiasRCN/videos",  # 2018-2020, títulos sueltos
+            "canal_directos": "https://www.youtube.com/@NoticiasRCN/streams",
         },
+    },
+    "canal1": {
+        "pattern": r"televista",
+        "playlists": {"directos": "https://www.youtube.com/@Canal1Col/streams"},
     },
 }
 MESES = {m: i for i, m in enumerate(
@@ -77,6 +90,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=SOURCES, required=True)
     ap.add_argument("--pattern", default=None, help="regex sobre el título normalizado")
+    ap.add_argument("--min-duration", type=int, default=240, help="segundos; descarta resúmenes ('Titulares')")
     args = ap.parse_args()
     cfg = SOURCES[args.source]
     out = Path("data/manifests") / args.source
@@ -90,7 +104,8 @@ def main():
     rows = []
     with yt_dlp.YoutubeDL(opts) as ydl:
         for name, pl in cfg["playlists"].items():
-            info = ydl.extract_info(f"https://www.youtube.com/playlist?list={pl}", download=False)
+            url = pl if pl.startswith("https://") else f"https://www.youtube.com/playlist?list={pl}"
+            info = ydl.extract_info(url, download=False)
             for e in info.get("entries") or []:
                 if not e or not e.get("id"):
                     continue
@@ -115,9 +130,19 @@ def main():
                 r["upload_date"] = date_from_title(r["title"], int(near[0]["upload_date"][:4]))
                 break
 
+    # Fechas del paso 2b (directos de Canal 1: el listado no las trae y el título casi nunca).
+    meta_path = out / "metadata.tsv"
+    if meta_path.exists():
+        with meta_path.open(encoding="utf-8") as f:
+            meta = {m["id"]: m for m in csv.DictReader(f, delimiter="\t")}
+        for r in rows:
+            if r["id"] in meta:
+                r["upload_date"] = meta[r["id"]]["upload_date"] or r["upload_date"]
+
     seen, cand = set(), []
     for r in rows:
-        if r["id"] not in seen and pat.search(norm(r["title"])):
+        dur = int(r["duration"] or 0)
+        if r["id"] not in seen and pat.search(norm(r["title"])) and (not dur or dur >= args.min_duration):
             seen.add(r["id"])
             cand.append(r)
     for name, data in [("channel_emisiones.tsv", rows), ("candidates.tsv", cand)]:
@@ -126,7 +151,7 @@ def main():
             w.writeheader()
             w.writerows(data)
     (out / "candidate_ids.txt").write_text("\n".join(r["id"] for r in cand) + "\n")
-    print(f"{len(cand)} emisiones del mediodía de {len(rows)} -> {out/'candidates.tsv'}")
+    print(f"{len(cand)} emisiones con intérprete de {len(rows)} -> {out/'candidates.tsv'}")
 
 
 if __name__ == "__main__":
